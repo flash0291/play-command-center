@@ -16,6 +16,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Bot,
+  UserPlus,
 } from "lucide-react";
 
 const AGENT_ICONS: Record<string, React.ElementType> = {
@@ -26,6 +28,8 @@ const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { id: "timeline", label: "Timeline", icon: Clock, href: "/timeline" },
   { id: "deliverables", label: "Deliverables", icon: CheckSquare, href: "/deliverables" },
+  { id: "influencers", label: "Influencer CRM", icon: UserPlus, href: "/influencers" },
+  { id: "scraper", label: "Scraper Engine", icon: Bot, href: "/scraper" },
 ];
 
 export function Sidebar() {
