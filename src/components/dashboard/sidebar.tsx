@@ -18,7 +18,11 @@ import {
   ChevronRight,
   Bot,
   UserPlus,
+  Zap,
+  FileText,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const AGENT_ICONS: Record<string, React.ElementType> = {
   Brain, Store, Users, Palette, CalendarDays, DollarSign, BarChart3,
@@ -26,6 +30,8 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { id: "intelligence", label: "Intelligence", icon: Zap, href: "/intelligence" },
+  { id: "briefs", label: "Daily Briefs", icon: FileText, href: "/briefs" },
   { id: "timeline", label: "Timeline", icon: Clock, href: "/timeline" },
   { id: "deliverables", label: "Deliverables", icon: CheckSquare, href: "/deliverables" },
   { id: "influencers", label: "Influencer CRM", icon: UserPlus, href: "/influencers" },
@@ -35,6 +41,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const { agents, sidebarOpen, toggleSidebar, selectedAgent, setSelectedAgent, messages } = useCampaignStore();
   const unreadCount = messages.filter((m) => !m.read).length;
+  const pathname = usePathname();
 
   return (
     <aside
@@ -44,7 +51,7 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
-        <div className="flex items-center gap-3 min-w-0">
+        <Link href="/" className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center flex-shrink-0">
             <span className="text-sm font-bold">P</span>
           </div>
@@ -54,36 +61,50 @@ export function Sidebar() {
               <p className="text-[10px] text-muted truncate">Palm Angels</p>
             </div>
           )}
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {sidebarOpen && <p className="text-[10px] uppercase tracking-wider text-muted mb-2 px-2">Navigation</p>}
-        {NAV_ITEMS.map((item) => (
-          <a
-            key={item.id}
-            href={item.href}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors group"
-          >
-            <item.icon size={18} className="flex-shrink-0 group-hover:text-accent" />
-            {sidebarOpen && <span>{item.label}</span>}
-          </a>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group ${
+                isActive
+                  ? "bg-accent/10 text-white border border-accent/20"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <item.icon size={18} className={`flex-shrink-0 ${isActive ? "text-accent" : "group-hover:text-accent"}`} />
+              {sidebarOpen && <span>{item.label}</span>}
+              {item.id === "intelligence" && sidebarOpen && (
+                <span className="ml-auto w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              )}
+            </Link>
+          );
+        })}
 
         {/* Messages */}
-        <a
-          href="#messages"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors group relative"
+        <Link
+          href="/messages"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group relative ${
+            pathname === "/messages"
+              ? "bg-accent/10 text-white border border-accent/20"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          }`}
         >
-          <MessageSquare size={18} className="flex-shrink-0 group-hover:text-accent" />
+          <MessageSquare size={18} className={`flex-shrink-0 ${pathname === "/messages" ? "text-accent" : "group-hover:text-accent"}`} />
           {sidebarOpen && <span>Messages</span>}
           {unreadCount > 0 && (
-            <span className="absolute right-2 top-1.5 w-5 h-5 bg-accent rounded-full text-[10px] font-bold flex items-center justify-center">
+            <span className={`${sidebarOpen ? "ml-auto" : "absolute -top-1 -right-1"} w-5 h-5 bg-accent rounded-full text-[10px] font-bold flex items-center justify-center`}>
               {unreadCount}
             </span>
           )}
-        </a>
+        </Link>
 
         {/* Agents */}
         <div className="pt-4">
@@ -121,13 +142,17 @@ export function Sidebar() {
 
       {/* Settings + Collapse */}
       <div className="border-t border-border p-3 space-y-1">
-        <a
-          href="#settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+        <Link
+          href="/settings"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+            pathname === "/settings"
+              ? "bg-accent/10 text-white border border-accent/20"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          }`}
         >
           <Settings size={18} />
           {sidebarOpen && <span>Settings</span>}
-        </a>
+        </Link>
         <button
           onClick={toggleSidebar}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors w-full"

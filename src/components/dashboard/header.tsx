@@ -1,18 +1,26 @@
 "use client";
 
 import { useCampaignStore } from "@/store/campaign-store";
-import { Bell, Search, Zap } from "lucide-react";
+import { Bell, Search, Zap, Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export function Header() {
-  const { campaign, messages } = useCampaignStore();
+  const { campaign, messages, generateBrief, briefLoading, getStats } = useCampaignStore();
   const unread = messages.filter((m) => !m.read).length;
   const actionRequired = messages.filter((m) => m.actionRequired && !m.read).length;
+  const stats = getStats();
 
-  const phaseLabels = {
+  const phaseLabels: Record<string, string> = {
     pre_launch: "Pre-Launch",
     launch_week: "Launch Week",
     sustain: "Sustain",
     optimize: "Optimize",
+  };
+
+  const handleRunBrief = () => {
+    if (!briefLoading) {
+      generateBrief("morning");
+    }
   };
 
   return (
@@ -23,9 +31,9 @@ export function Header() {
           <div className="flex items-center gap-2 text-xs text-muted">
             <span>Week {campaign.currentWeek}/{campaign.totalWeeks}</span>
             <span className="text-border">|</span>
-            <span className="text-accent">{phaseLabels[campaign.currentPhase]}</span>
+            <span className="text-accent">{phaseLabels[campaign.currentPhase] || campaign.currentPhase}</span>
             <span className="text-border">|</span>
-            <span>Health: {campaign.healthScore}/100</span>
+            <span>Health: {stats.healthScore}/100</span>
           </div>
         </div>
       </div>
@@ -41,28 +49,32 @@ export function Header() {
           />
         </div>
 
-        {/* Run Orchestrator */}
-        <button className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-sm font-medium transition-colors">
-          <Zap size={14} />
-          Run Brief
+        {/* Run Brief */}
+        <button
+          onClick={handleRunBrief}
+          disabled={briefLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+        >
+          {briefLoading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+          {briefLoading ? "Generating..." : "Run Brief"}
         </button>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-white/5 transition-colors">
+        <Link href="/messages" className="relative p-2 rounded-lg hover:bg-white/5 transition-colors">
           <Bell size={18} className="text-gray-400" />
           {unread > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger rounded-full text-[10px] font-bold flex items-center justify-center">
               {unread}
             </span>
           )}
-        </button>
+        </Link>
 
         {/* Action Required */}
         {actionRequired > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg">
+          <Link href="/messages" className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/15 transition-colors">
             <span className="w-2 h-2 rounded-full bg-warning animate-pulse-dot" />
             <span className="text-xs text-warning font-medium">{actionRequired} actions needed</span>
-          </div>
+          </Link>
         )}
       </div>
     </header>

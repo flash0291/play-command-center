@@ -5,6 +5,7 @@ import { AgentMessage } from "@/types";
 import { getAgentColor, getAgentName } from "@/agents/engine";
 import { AlertCircle, Lightbulb, Zap, BarChart3, MessageCircle, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   action: Zap,
@@ -15,7 +16,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 };
 
 function MessageCard({ message }: { message: AgentMessage }) {
-  const { markMessageRead } = useCampaignStore();
+  const { markMessageRead, executeAction } = useCampaignStore();
   const Icon = TYPE_ICONS[message.type] || MessageCircle;
   const agentColor = getAgentColor(message.agentId);
   const agentName = getAgentName(message.agentId);
@@ -60,6 +61,10 @@ function MessageCard({ message }: { message: AgentMessage }) {
                 return (
                   <button
                     key={action.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      executeAction(message.id, action.id);
+                    }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${styles[action.type] || styles.defer}`}
                   >
                     {action.label}
@@ -82,9 +87,9 @@ export function MessageFeed() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-muted uppercase tracking-wider">Agent Feed</h3>
-        <button className="text-xs text-accent hover:text-accent/80 flex items-center gap-1">
+        <Link href="/messages" className="text-xs text-accent hover:text-accent/80 flex items-center gap-1">
           View All <ChevronRight size={12} />
-        </button>
+        </Link>
       </div>
       <div className="space-y-3">
         {sorted.slice(0, 6).map((msg) => (
