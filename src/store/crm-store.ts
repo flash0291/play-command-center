@@ -4,6 +4,7 @@
 // ============================================================
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { InfluencerRecord, InfluencerStage, ScraperJob, Organization, TeamMember, ScraperDiscovery } from "@/types/crm";
 import { INFLUENCERS, ORGANIZATIONS, TEAM_MEMBERS, SCRAPER_JOBS } from "@/lib/seed-crm";
 import { OUTREACH_TEMPLATES } from "@/agents/outreach/pipeline";
@@ -66,7 +67,9 @@ interface CRMState {
   };
 }
 
-export const useCRMStore = create<CRMState>((set, get) => ({
+export const useCRMStore = create<CRMState>()(
+  persist(
+    (set, get) => ({
   influencers: INFLUENCERS,
   organizations: ORGANIZATIONS,
   teamMembers: TEAM_MEMBERS,
@@ -231,4 +234,13 @@ export const useCRMStore = create<CRMState>((set, get) => ({
       autoDiscovered,
     };
   },
-}));
+    }),
+    {
+      name: "play-crm",
+      partialize: (state) => ({
+        liveDiscoveries: state.liveDiscoveries,
+        scraperJobs: state.scraperJobs,
+      }),
+    }
+  )
+);

@@ -4,6 +4,7 @@
 // ============================================================
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { PlayVertical } from "@/lib/play-verticals";
 
 // ---- Step definitions ----
@@ -113,7 +114,7 @@ export interface TeamMember {
 
 // ---- Store ----
 
-interface OnboardingState {
+export interface OnboardingState {
   currentStep: OnboardingStep;
   completedSteps: OnboardingStep[];
   isLaunched: boolean;
@@ -153,7 +154,9 @@ interface OnboardingState {
   getCompletionPercentage: () => number;
 }
 
-export const useOnboardingStore = create<OnboardingState>((set, get) => ({
+export const useOnboardingStore = create<OnboardingState>()(
+  persist(
+    (set, get) => ({
   currentStep: "brand",
   completedSteps: [],
   isLaunched: false,
@@ -336,7 +339,15 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       team: s.team.map((t) => (t.id === id ? { ...t, ...data } : t)),
     })),
 
-  launchCampaign: () => set({ isLaunched: true }),
+  launchCampaign: () => {
+    set({ isLaunched: true });
+    // Defer initialization to avoid circular import issues at module load time
+    import("@/lib/campaign-initializer").then(({ initializeCampaignFromOnboarding, initializeCRMFromOnboarding }) => {
+      const state = get();
+      initializeCampaignFromOnboarding(state);
+      initializeCRMFromOnboarding(state);
+    });
+  },
 
   // Computed
   getStepProgress: () => {
@@ -372,4 +383,21 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     const s = get();
     return Math.round((s.completedSteps.length / ONBOARDING_STEPS.length) * 100);
   },
-}));
+    }),
+    {
+      name: "play-onboarding",
+      partialize: (state) => ({
+        currentStep: state.currentStep,
+        completedSteps: state.completedSteps,
+        isLaunched: state.isLaunched,
+        brand: state.brand,
+        campaign: state.campaign,
+        verticals: state.verticals,
+        platforms: state.platforms,
+        influencer: state.influencer,
+        budget: state.budget,
+        team: state.team,
+      }),
+    }
+  )
+);

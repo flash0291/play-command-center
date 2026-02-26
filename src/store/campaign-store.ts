@@ -5,6 +5,7 @@
 // ============================================================
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { Agent, AgentId, AgentMessage, Campaign, Deliverable, DeliverableStatus } from "@/types";
 import { CAMPAIGN, DELIVERABLES, TIMELINE_EVENTS } from "@/lib/seed-data";
 import { AGENT_DEFINITIONS } from "@/lib/agents";
@@ -211,7 +212,9 @@ const INITIAL_MESSAGES: AgentMessage[] = [
   },
 ];
 
-export const useCampaignStore = create<CampaignState>((set, get) => ({
+export const useCampaignStore = create<CampaignState>()(
+  persist(
+    (set, get) => ({
   campaign: CAMPAIGN,
   deliverables: DELIVERABLES,
   timeline: TIMELINE_EVENTS,
@@ -329,7 +332,7 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
         body: JSON.stringify({
           agentId,
           userPrompt: content,
-          systemPrompt: `You are the ${agentId} agent for the PLAY by Palm Angels campaign command center. You manage a specific domain of the campaign and provide intelligent, actionable responses. Be concise, specific, and data-driven. Reference real campaign metrics and deliverables when possible. Current date: February 26, 2026. Campaign: 60-day sprint, Pre-Launch phase, $1M budget.`,
+          systemPrompt: `You are the ${agentId} agent for the ${get().campaign.name} campaign command center. Client: ${get().campaign.client}. You manage a specific domain of the campaign and provide intelligent, actionable responses. Be concise, specific, and data-driven. Reference real campaign metrics and deliverables when possible. Current date: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. Campaign: ${get().campaign.totalWeeks * 7}-day sprint, ${get().campaign.currentPhase.replace("_", " ")} phase, $${(get().campaign.budget.total / 1000).toFixed(0)}K budget.`,
         }),
       });
 
@@ -464,7 +467,20 @@ export const useCampaignStore = create<CampaignState>((set, get) => ({
   },
 
   getChatHistory: (agentId) => get().chatHistory[agentId] || [],
-}));
+    }),
+    {
+      name: "play-campaign",
+      partialize: (state) => ({
+        campaign: state.campaign,
+        deliverables: state.deliverables,
+        timeline: state.timeline,
+        messages: state.messages,
+        chatHistory: state.chatHistory,
+        briefs: state.briefs,
+      }),
+    }
+  )
+);
 
 // ---- Fallback Generators ----
 

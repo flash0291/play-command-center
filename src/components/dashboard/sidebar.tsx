@@ -1,6 +1,7 @@
 "use client";
 
 import { useCampaignStore } from "@/store/campaign-store";
+import { useOnboardingStore } from "@/store/onboarding-store";
 import {
   Brain,
   Store,
@@ -40,6 +41,8 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { agents, sidebarOpen, toggleSidebar, selectedAgent, setSelectedAgent, messages } = useCampaignStore();
+  const brandName = useOnboardingStore((s) => s.brand.brandName);
+  const clientName = useOnboardingStore((s) => s.brand.clientName);
   const unreadCount = messages.filter((m) => !m.read).length;
   const pathname = usePathname();
 
@@ -57,8 +60,8 @@ export function Sidebar() {
           </div>
           {sidebarOpen && (
             <div className="min-w-0">
-              <h1 className="text-sm font-bold truncate">PLAY Command</h1>
-              <p className="text-[10px] text-muted truncate">Palm Angels</p>
+              <h1 className="text-sm font-bold truncate">{brandName || "PLAY Command"}</h1>
+              <p className="text-[10px] text-muted truncate">{clientName || "Palm Angels"}</p>
             </div>
           )}
         </Link>

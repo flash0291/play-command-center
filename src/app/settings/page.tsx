@@ -2,7 +2,9 @@
 
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useOnboardingStore } from "@/store/onboarding-store";
+import { syncSettingsToStores } from "@/lib/campaign-initializer";
 import {
   Settings as SettingsIcon,
   Bell,
@@ -18,13 +20,13 @@ import {
 
 // ── Agent data ────────────────────────────────────────────
 const AGENTS = [
-  { name: "Campaign Orchestrator", color: "#6366F1" },
-  { name: "Retail Partner Agent", color: "#EC4899" },
-  { name: "Influencer & Talent Agent", color: "#F59E0B" },
-  { name: "Content Engine", color: "#8B5CF6" },
-  { name: "Event & Experiential Agent", color: "#14B8A6" },
-  { name: "Budget & Compliance Agent", color: "#22C55E" },
-  { name: "Performance & Intelligence Agent", color: "#EF4444" },
+  { id: "orchestrator", name: "Campaign Orchestrator", color: "#6366F1" },
+  { id: "retail", name: "Retail Partner Agent", color: "#EC4899" },
+  { id: "influencer", name: "Influencer & Talent Agent", color: "#F59E0B" },
+  { id: "content", name: "Content Engine", color: "#8B5CF6" },
+  { id: "events", name: "Event & Experiential Agent", color: "#14B8A6" },
+  { id: "budget", name: "Budget & Compliance Agent", color: "#22C55E" },
+  { id: "performance", name: "Performance & Intelligence Agent", color: "#EF4444" },
 ];
 
 // ── Integration defaults ──────────────────────────────────
@@ -37,18 +39,20 @@ const INTEGRATIONS_DEFAULT = [
   { name: "Google Analytics", key: "google_analytics", connected: false },
 ];
 
-// ── Team data ─────────────────────────────────────────────
-const TEAM_MEMBERS = [
-  { name: "Daniel George", role: "Admin", color: "#6366F1" },
-  { name: "Marcus Chen", role: "Agency", color: "#F59E0B" },
-  { name: "Aisha Williams", role: "Agency", color: "#EC4899" },
-  { name: "Sofia Rodriguez", role: "Creative Director", color: "#8B5CF6" },
-];
-
 const ROLE_COLORS: Record<string, string> = {
-  Admin: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
-  Agency: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  "Creative Director": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  admin: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  agency: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+  creative_director: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  account_manager: "bg-teal-500/10 text-teal-400 border-teal-500/20",
+  viewer: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  agency: "Agency",
+  creative_director: "Creative Director",
+  account_manager: "Account Manager",
+  viewer: "Viewer",
 };
 
 // ── Toggle component ──────────────────────────────────────
@@ -72,12 +76,32 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 
 // ── Main page ─────────────────────────────────────────────
 export default function SettingsPage() {
-  // Campaign settings
+  // ── Onboarding store bindings ───────────────────────────
+  const campaignName = useOnboardingStore((s) => s.campaign.campaignName);
+  const startDate = useOnboardingStore((s) => s.campaign.startDate);
+  const endDate = useOnboardingStore((s) => s.campaign.endDate);
+  const sprintDuration = useOnboardingStore((s) => s.campaign.sprintDuration);
+  const influencer = useOnboardingStore((s) => s.influencer);
+  const team = useOnboardingStore((s) => s.team);
+  const totalBudget = useOnboardingStore((s) => s.budget.totalBudget);
+  const agentAllocations = useOnboardingStore((s) => s.budget.agentAllocations);
+  const updateInfluencer = useOnboardingStore((s) => s.updateInfluencer);
+  const updateCampaign = useOnboardingStore((s) => s.updateCampaign);
+  const updateBudget = useOnboardingStore((s) => s.updateBudget);
+  const updateAgentAllocation = useOnboardingStore((s) => s.updateAgentAllocation);
+
+  // Sync changes to campaign/CRM stores
+  const syncAll = useCallback(() => {
+    const state = useOnboardingStore.getState();
+    syncSettingsToStores(state);
+  }, []);
+
+  // Campaign settings — current phase (local, affects campaign store directly)
   const [currentPhase, setCurrentPhase] = useState("pre_launch");
   const [warningThreshold] = useState(70);
   const [criticalThreshold] = useState(50);
 
-  // Agent configuration
+  // Agent configuration (local state for toggles/automation modes)
   const [agentStatuses, setAgentStatuses] = useState<boolean[]>(
     AGENTS.map(() => true)
   );
@@ -90,19 +114,7 @@ export default function SettingsPage() {
     INTEGRATIONS_DEFAULT.map((i) => ({ ...i }))
   );
 
-  // Scraper config
-  const [minFollowers, setMinFollowers] = useState("5000");
-  const [minEngagement, setMinEngagement] = useState("2.0");
-  const [autoOutreach, setAutoOutreach] = useState(true);
-  const [maxDMsPerHour, setMaxDMsPerHour] = useState("10");
-  const [scanInterval, setScanInterval] = useState("30");
-  const [nicheKeywords, setNicheKeywords] = useState([
-    "streetwear",
-    "luxury fashion",
-    "Palm Angels",
-    "Y2K fashion",
-    "hypebeast",
-  ]);
+  // Keyword input for scraper
   const [keywordInput, setKeywordInput] = useState("");
 
   // Notification preferences
@@ -142,17 +154,35 @@ export default function SettingsPage() {
 
   const addKeyword = () => {
     const trimmed = keywordInput.trim();
-    if (trimmed && !nicheKeywords.includes(trimmed)) {
-      setNicheKeywords((prev) => [...prev, trimmed]);
+    if (trimmed && !influencer.nicheKeywords.includes(trimmed)) {
+      updateInfluencer({ nicheKeywords: [...influencer.nicheKeywords, trimmed] });
       setKeywordInput("");
+      syncAll();
     }
   };
 
   const removeKeyword = (kw: string) => {
-    setNicheKeywords((prev) => prev.filter((k) => k !== kw));
+    updateInfluencer({ nicheKeywords: influencer.nicheKeywords.filter((k) => k !== kw) });
+    syncAll();
   };
 
-  // ── Automation label ────────────────────────────────────
+  // Format date for display
+  const formatDate = (d: string) => {
+    if (!d) return "Not set";
+    try {
+      return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    } catch { return d; }
+  };
+
+  const sprintLabel = `${sprintDuration} days${startDate ? ` (${formatDate(startDate)} - ${formatDate(endDate || "")})` : ""}`;
+
+  // Budget per agent
+  const getAgentBudget = (agentId: string) => {
+    const alloc = agentAllocations.find((a) => a.agentId === agentId);
+    return alloc?.allocated ?? 0;
+  };
+
+  // Automation label
   const automationLabel = (val: string) => {
     switch (val) {
       case "full_auto":
@@ -165,9 +195,6 @@ export default function SettingsPage() {
         return val;
     }
   };
-
-  // ── Use all icons in JSX so TS doesn't complain ─────────
-  // They are used inline below inside card headers / labels.
 
   return (
     <div className="min-h-screen">
@@ -202,9 +229,12 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="text"
-                    readOnly
-                    value="PLAY by Palm Angels — U.S. Market Launch"
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                    value={campaignName || "PLAY by Palm Angels — U.S. Market Launch"}
+                    onChange={(e) => {
+                      updateCampaign({ campaignName: e.target.value });
+                      syncAll();
+                    }}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50"
                   />
                 </div>
 
@@ -215,9 +245,27 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     readOnly
-                    value="60 days (Feb 25 - Apr 25, 2026)"
+                    value={sprintLabel}
                     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-muted mb-1">
+                    Total Budget
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted">$</span>
+                    <input
+                      type="number"
+                      value={totalBudget || 1000000}
+                      onChange={(e) => {
+                        updateBudget({ totalBudget: Number(e.target.value) });
+                        syncAll();
+                      }}
+                      className="w-full bg-background border border-border rounded-lg pl-7 pr-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -282,47 +330,68 @@ export default function SettingsPage() {
               </h3>
 
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                {AGENTS.map((agent, i) => (
-                  <div
-                    key={agent.name}
-                    className="flex items-center justify-between bg-background border border-border rounded-lg px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: agent.color }}
-                      />
-                      <span className="text-sm font-medium truncate">
-                        {agent.name}
-                      </span>
+                {AGENTS.map((agent, i) => {
+                  const budget = getAgentBudget(agent.id);
+                  return (
+                    <div
+                      key={agent.name}
+                      className="flex items-center justify-between bg-background border border-border rounded-lg px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: agent.color }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium truncate block">
+                            {agent.name}
+                          </span>
+                          {budget > 0 && (
+                            <span className="text-[10px] text-muted">
+                              ${(budget / 1000).toFixed(0)}K allocated
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <input
+                          type="number"
+                          value={budget}
+                          onChange={(e) => {
+                            updateAgentAllocation(agent.id, Number(e.target.value));
+                            syncAll();
+                          }}
+                          className="w-20 bg-card border border-border rounded-md px-2 py-1 text-[11px] text-white focus:outline-none focus:border-accent/50"
+                          placeholder="Budget"
+                        />
+
+                        <select
+                          value={agentAutomation[i]}
+                          onChange={(e) => changeAutomation(i, e.target.value)}
+                          className="bg-card border border-border rounded-md px-2 py-1 text-[11px] text-white focus:outline-none"
+                        >
+                          <option value="full_auto">Full Auto</option>
+                          <option value="semi_auto">Semi-Auto</option>
+                          <option value="manual">Manual Approval</option>
+                        </select>
+
+                        <Toggle
+                          on={agentStatuses[i]}
+                          onToggle={() => toggleAgent(i)}
+                        />
+
+                        <span
+                          className={`text-[10px] w-12 text-center font-medium ${
+                            agentStatuses[i] ? "text-green-400" : "text-gray-500"
+                          }`}
+                        >
+                          {agentStatuses[i] ? "Active" : "Paused"}
+                        </span>
+                      </div>
                     </div>
-
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <select
-                        value={agentAutomation[i]}
-                        onChange={(e) => changeAutomation(i, e.target.value)}
-                        className="bg-card border border-border rounded-md px-2 py-1 text-[11px] text-white focus:outline-none"
-                      >
-                        <option value="full_auto">Full Auto</option>
-                        <option value="semi_auto">Semi-Auto</option>
-                        <option value="manual">Manual Approval</option>
-                      </select>
-
-                      <Toggle
-                        on={agentStatuses[i]}
-                        onToggle={() => toggleAgent(i)}
-                      />
-
-                      <span
-                        className={`text-[10px] w-12 text-center font-medium ${
-                          agentStatuses[i] ? "text-green-400" : "text-gray-500"
-                        }`}
-                      >
-                        {agentStatuses[i] ? "Active" : "Paused"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <p className="text-[10px] text-muted">
@@ -400,9 +469,12 @@ export default function SettingsPage() {
                     Min Followers
                   </label>
                   <input
-                    type="text"
-                    value={minFollowers}
-                    onChange={(e) => setMinFollowers(e.target.value)}
+                    type="number"
+                    value={influencer.minFollowers}
+                    onChange={(e) => {
+                      updateInfluencer({ minFollowers: Number(e.target.value) });
+                      syncAll();
+                    }}
                     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50"
                   />
                 </div>
@@ -412,9 +484,13 @@ export default function SettingsPage() {
                   </label>
                   <div className="relative">
                     <input
-                      type="text"
-                      value={minEngagement}
-                      onChange={(e) => setMinEngagement(e.target.value)}
+                      type="number"
+                      step="0.1"
+                      value={influencer.minEngagement}
+                      onChange={(e) => {
+                        updateInfluencer({ minEngagement: Number(e.target.value) });
+                        syncAll();
+                      }}
                       className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50 pr-8"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted">
@@ -429,20 +505,26 @@ export default function SettingsPage() {
                   <span className="text-sm">Auto-Outreach</span>
                 </div>
                 <Toggle
-                  on={autoOutreach}
-                  onToggle={() => setAutoOutreach(!autoOutreach)}
+                  on={influencer.autoOutreach}
+                  onToggle={() => {
+                    updateInfluencer({ autoOutreach: !influencer.autoOutreach });
+                    syncAll();
+                  }}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-muted mb-1">
-                    Max DMs per Hour
+                    Max DMs per Day
                   </label>
                   <input
-                    type="text"
-                    value={maxDMsPerHour}
-                    onChange={(e) => setMaxDMsPerHour(e.target.value)}
+                    type="number"
+                    value={influencer.autoOutreachMaxPerDay}
+                    onChange={(e) => {
+                      updateInfluencer({ autoOutreachMaxPerDay: Number(e.target.value) });
+                      syncAll();
+                    }}
                     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50"
                   />
                 </div>
@@ -451,8 +533,11 @@ export default function SettingsPage() {
                     Scan Interval
                   </label>
                   <select
-                    value={scanInterval}
-                    onChange={(e) => setScanInterval(e.target.value)}
+                    value={String(influencer.scraperScanInterval)}
+                    onChange={(e) => {
+                      updateInfluencer({ scraperScanInterval: Number(e.target.value) });
+                      syncAll();
+                    }}
                     className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-accent/50"
                   >
                     <option value="15">Every 15 min</option>
@@ -468,7 +553,7 @@ export default function SettingsPage() {
                   Niche Keywords
                 </label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {nicheKeywords.map((kw) => (
+                  {influencer.nicheKeywords.map((kw) => (
                     <span
                       key={kw}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[11px] font-medium"
@@ -583,35 +668,80 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-3">
-                {TEAM_MEMBERS.map((member) => (
-                  <div
-                    key={member.name}
-                    className="flex items-center justify-between bg-background border border-border rounded-lg px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3">
+                {team.length > 0 ? (
+                  team.map((member) => {
+                    const colors = ["#6366F1", "#EC4899", "#F59E0B", "#8B5CF6", "#14B8A6", "#22C55E"];
+                    const memberColor = colors[member.name.length % colors.length];
+                    return (
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{
-                          backgroundColor: `${member.color}15`,
-                          color: member.color,
-                        }}
+                        key={member.id}
+                        className="flex items-center justify-between bg-background border border-border rounded-lg px-4 py-3"
                       >
-                        {member.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{
+                              backgroundColor: `${memberColor}15`,
+                              color: memberColor,
+                            }}
+                          >
+                            {member.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")}
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium block">{member.name}</span>
+                            <span className="text-[10px] text-muted">{member.email}</span>
+                          </div>
+                        </div>
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${
+                            ROLE_COLORS[member.role] || "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                          }`}
+                        >
+                          {ROLE_LABELS[member.role] || member.role}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium">{member.name}</span>
-                    </div>
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${
-                        ROLE_COLORS[member.role] || "bg-gray-500/10 text-gray-400 border-gray-500/20"
-                      }`}
+                    );
+                  })
+                ) : (
+                  // Fallback — show default team if none configured
+                  [
+                    { name: "Daniel George", role: "Admin", color: "#6366F1" },
+                    { name: "Marcus Chen", role: "Agency", color: "#F59E0B" },
+                    { name: "Aisha Williams", role: "Agency", color: "#EC4899" },
+                    { name: "Sofia Rodriguez", role: "Creative Director", color: "#8B5CF6" },
+                  ].map((member) => (
+                    <div
+                      key={member.name}
+                      className="flex items-center justify-between bg-background border border-border rounded-lg px-4 py-3"
                     >
-                      {member.role}
-                    </span>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                          style={{
+                            backgroundColor: `${member.color}15`,
+                            color: member.color,
+                          }}
+                        >
+                          {member.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
+                        </div>
+                        <span className="text-sm font-medium">{member.name}</span>
+                      </div>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${
+                          ROLE_COLORS[member.role.toLowerCase().replace(/ /g, "_")] || "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                        }`}
+                      >
+                        {member.role}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
 
               <button className="w-full px-4 py-2.5 bg-white/5 border border-border rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
